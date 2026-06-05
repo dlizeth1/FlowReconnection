@@ -8,7 +8,8 @@ partir del Google Sheet del equipo, y genera un **HTML interactivo** que se abre
 
 | Archivo | Qué es |
 |---|---|
-| `config.py` | **Única fuente de verdad**: todos los supuestos (capex, precios, costos, ocupación, ideas de ingreso). Editable. |
+| `config.py` | Supuestos del modelo (capex, precios, costos, ocupación, ideas de ingreso). Respaldo estático: **el Sheet manda**. |
+| `live_sheet.py` | Lee EN VIVO el `.xlsx` del Drive (por link público) y sobrescribe los supuestos de `config.py`. |
 | `model.py` | Cálculos puros (stdlib) + reporte de validación cruzada contra el Sheet. |
 | `build_html.py` | Genera el entregable HTML autónomo. |
 | `flow_reconnection_modelo.html` | **Entregable**: dashboard interactivo (sliders + gráficos). Doble clic para abrir. |
@@ -16,15 +17,22 @@ partir del Google Sheet del equipo, y genera un **HTML interactivo** que se abre
 ## Uso
 
 ```bash
+pip install -r requirements.txt   # requests + openpyxl (para la lectura en vivo)
 python model.py        # imprime KPIs y valida el modelo vs el Sheet
 python build_html.py   # regenera flow_reconnection_modelo.html
 ```
-Sin dependencias de Python (solo stdlib). El HTML usa Plotly.js vía CDN (requiere internet al abrir).
+Por defecto los scripts descargan el Sheet en vivo y caen a los valores estáticos de `config.py`
+si la descarga falla. Para forzar modo offline: `FLOW_LIVE=0`. El HTML usa Plotly.js vía CDN
+(requiere internet al abrir).
+
+> **Privacidad**: el cap table (hoja ABONOS del Sheet) **no** se extrae ni se publica:
+> contiene datos personales que no deben llegar al HTML público.
 
 ## Cómo editar los supuestos
 
-Cambia los valores en `config.py` y vuelve a correr `python build_html.py`. El HTML también permite
-ajustar en vivo (sin reconstruir): # tanques, precio, ocupación, arriendo, pauta y base de inversión.
+Edita el Google Sheet (el Sheet manda) o, en modo offline, los valores de `config.py`, y vuelve a
+correr `python build_html.py`. El HTML también permite ajustar en vivo (sin reconstruir):
+# tanques, precio, ocupación, arriendo, pauta y base de inversión.
 
 ## Hallazgos clave (caso base Medellín, 4 tanques, $155.000)
 

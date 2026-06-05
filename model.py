@@ -150,12 +150,13 @@ def validar():
     print("FLOW RECONNECTION — Validación del modelo vs Google Sheet")
     print("=" * 72)
 
-    # --- Reconciliaciones de config ---
-    print("\n[1] Reconciliación de totales (config):")
-    print(f"  CAPEX total            : {_fmt(C.CAPEX_TOTAL)}  (esperado $344,441,600)  "
-          f"{'OK' if C.CAPEX_TOTAL == 344_441_600 else 'DIF'}")
-    print(f"  Costos fijos 4T total  : {_fmt(C.COSTOS_FIJOS_4T_TOTAL)}  (esperado $47,484,523)  "
-          f"{'OK' if C.COSTOS_FIJOS_4T_TOTAL == 47_484_523 else 'DIF'}")
+    # --- Totales y consistencia interna ---
+    fuente = "EN VIVO (Google Sheet)" if getattr(C, "LIVE_DATA", False) else "estático (config.py)"
+    print(f"\n[1] Totales (fuente: {fuente}):")
+    fij_ok = C.COSTOS_FIJOS_4T_TOTAL == sum(C.COSTOS_FIJOS_4T.values())
+    print(f"  CAPEX total            : {_fmt(C.CAPEX_TOTAL)}")
+    print(f"  Costos fijos 4T total  : {_fmt(C.COSTOS_FIJOS_4T_TOTAL)}  "
+          f"(suma de items {'OK' if fij_ok else 'DIF'})")
 
     # --- Capacidad e ingreso 100% ---
     print("\n[2] Capacidad e ingreso (4 tanques):")
@@ -181,11 +182,14 @@ def validar():
     print(f"  Sesiones año           : {sum(esc['sesiones']):,.0f}")
     print(f"  Ingreso año (modelo)   : {_fmt(ing_model)}  (Sheet {_fmt(esc['ingresos_total'])})  "
           f"{'OK' if ing_model == esc['ingresos_total'] else 'DIF'}")
-    print(f"  Utilidad marginal Sheet: {_fmt(esc['utilidad_marginal'])} (3%)")
-    print(f"  Después de deprec Sheet: {_fmt(esc['despues_depreciacion'])} (-1%)")
+    _ing = esc["ingresos_total"] or 1
+    print(f"  Utilidad marginal Sheet: {_fmt(esc['utilidad_marginal'])} "
+          f"({esc['utilidad_marginal']/_ing*100:.0f}%)")
+    print(f"  Después de deprec Sheet: {_fmt(esc['despues_depreciacion'])} "
+          f"({esc['despues_depreciacion']/_ing*100:.0f}%)")
 
     # --- ROI / Payback estado estable ---
-    print("\n[5] ROI / Payback (estado estable, capex $344.4M):")
+    print(f"\n[5] ROI / Payback (estado estable, capex {_fmt(C.CAPEX_TOTAL)}):")
     for occ in (0.30, 0.40, 0.50, 0.60):
         rp = roi_payback(4, 155_000, occ)
         pm = rp["payback_meses"]

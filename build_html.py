@@ -14,7 +14,10 @@ Uso:
 
 import json
 import os
+from datetime import datetime
 import config as C
+
+FILE_ID = "13v_c-IKpTtp25rWFLb47jb0oLEccQ7Fi"
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                    "flow_reconnection_modelo.html")
@@ -138,14 +141,14 @@ HTML = r"""<!DOCTYPE html>
   <div class="card"><h3>Ideas de ingreso adicional (capital semilla / recurrente)</h3>
     <div id="ideas"></div></div>
 
-  <div class="foot">Generado por build_html.py · fuente: Google Sheet 13v_c-IKpTtp25rWFLb47jb0oLEccQ7Fi ·
-    los supuestos viven en config.py</div>
+  <div class="foot">__FOOTER__</div>
 </div>
 
 <script>
 const CFG = __CONFIG__;
 const COP = x => '$' + Math.round(x).toLocaleString('es-CO');
 const COPm = x => '$' + (x/1e6).toLocaleString('es-CO',{maximumFractionDigits:1}) + 'M';
+const COPk = x => '$' + Math.round(x/1000).toLocaleString('es-CO') + 'K';   // miles COP: $150K
 const PLOT_LAYOUT = {
   paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
   font:{color:'#cdd9e5', size:12}, margin:{t:10,r:14,b:42,l:64},
@@ -288,7 +291,7 @@ function plotHeatmap(){
     }
     z.push(row);
   }
-  const data=[{z:z, x:precios.map(COPm), y:occs.map(o=>o+'%'), type:'heatmap',
+  const data=[{z:z, x:precios.map(COPk), y:occs.map(o=>o+'%'), type:'heatmap',
     colorscale:[[0,'#2f9e6b'],[0.3,'#9bbf52'],[0.6,'#e3c98f'],[1,'#e5736b']],
     reversescale:false, colorbar:{title:'meses'},
     hovertemplate:'Precio %{x} · Ocup %{y}<br>Payback %{z:.1f} meses<extra></extra>'}];
@@ -346,8 +349,22 @@ init();
 """
 
 
+def _footer():
+    sello = datetime.now().strftime("%Y-%m-%d %H:%M")
+    if getattr(C, "LIVE_DATA", False):
+        origen = (f'datos <b>EN VIVO</b> del Google Sheet '
+                  f'(<a href="https://drive.google.com/file/d/{FILE_ID}/view" '
+                  f'style="color:#c9a96a">{FILE_ID}</a>)')
+    else:
+        origen = ('datos <b>estáticos</b> de config.py '
+                  '(modo offline · el Sheet no se pudo leer)')
+    return (f'Generado por build_html.py el {sello} · {origen} · '
+            f'el Sheet manda y config.py es el respaldo')
+
+
 def build():
     html = HTML.replace("__CONFIG__", json.dumps(JS_CONFIG, ensure_ascii=False))
+    html = html.replace("__FOOTER__", _footer())
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"OK -> {OUT}")

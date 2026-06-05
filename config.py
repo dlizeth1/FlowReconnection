@@ -161,3 +161,28 @@ DEFAULTS = {
     "capex":       344_441_600,
     "incluir_depreciacion_en_be": False,
 }
+
+# Flags de estado (los actualiza el override en vivo si corre).
+LIVE_DATA = False          # True si los valores vienen del Sheet en vivo
+LIVE_SOURCE = None
+
+# ---------------------------------------------------------------------------
+# 9. LECTURA EN VIVO DEL GOOGLE SHEET  ("Sheet manda")
+# ---------------------------------------------------------------------------
+# Por defecto intenta leer el .xlsx del Drive y SOBRESCRIBE los valores de arriba.
+# Si la descarga falla (sin red, sin permisos, etc.) se queda con los estáticos.
+# Para forzar modo offline/estático:  set FLOW_LIVE=0   (Windows: $env:FLOW_LIVE=0)
+import os as _os
+if _os.environ.get("FLOW_LIVE", "1") != "0":
+    try:
+        import live_sheet as _live
+        _verbose = _os.environ.get("FLOW_LIVE_VERBOSE", "0") == "1"
+        _ov = _live.apply_live_overrides(globals(), verbose=_verbose)
+        if _ov:
+            import sys as _sys
+            print(f"[config] datos EN VIVO del Sheet aplicados "
+                  f"({len(_ov)} secciones · capex ${CAPEX_TOTAL:,}).", file=_sys.stderr)
+    except Exception as _e:
+        import sys as _sys
+        print(f"[config] AVISO: no se pudo leer el Sheet en vivo ({_e}); "
+              f"usando valores estáticos de config.py.", file=_sys.stderr)
