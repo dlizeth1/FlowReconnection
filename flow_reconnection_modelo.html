@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow Reconnection — Modelo financiero</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+  :root{
+    --bg:#06121f; --bg2:#0b2138; --panel:#0e2840; --line:#1c3a57;
+    --txt:#e8eef5; --muted:#8fa6bd; --gold:#c9a96a; --gold2:#e3c98f;
+    --blue:#4aa3df; --green:#4cc38a; --red:#e5736b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       background:radial-gradient(1200px 600px at 50% -10%,#0d2845,#06121f 70%);
+       color:var(--txt);line-height:1.45}
+  header{padding:34px 28px 18px;text-align:center;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-weight:300;letter-spacing:.18em;font-size:26px}
+  header h1 b{color:var(--gold);font-weight:600}
+  header p{margin:6px 0 0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
+  .controls{background:linear-gradient(180deg,var(--panel),var(--bg2));
+       border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:22px;
+       display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px 26px}
+  .ctrl label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.03em}
+  .ctrl .val{color:var(--gold2);font-weight:600}
+  input[type=range]{width:100%;accent-color:var(--gold)}
+  select{width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);
+       border-radius:8px;padding:7px 8px;font-size:13px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:26px}
+  .kpi{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+       border-radius:14px;padding:16px 18px}
+  .kpi .k{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .kpi .v{font-size:25px;font-weight:600;margin-top:6px}
+  .kpi .s{font-size:12px;color:var(--muted);margin-top:3px}
+  .v.good{color:var(--green)} .v.bad{color:var(--red)} .v.gold{color:var(--gold2)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:880px){.grid2{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+        border-radius:14px;padding:14px 16px;margin-bottom:18px}
+  .card h3{margin:2px 0 10px;font-weight:500;font-size:15px;letter-spacing:.03em;color:var(--gold2)}
+  .card .plot{width:100%;height:340px}
+  .note{font-size:12px;color:var(--muted);margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:500}
+  .foot{color:var(--muted);font-size:11px;text-align:center;margin-top:30px;letter-spacing:.03em}
+  .pill{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:20px;
+        padding:3px 10px;font-size:11px;color:var(--muted);margin:2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>FLOW <b>RECONNECTION</b></h1>
+  <p>Modelo financiero interactivo · centro de flotación · COP · datos del taller (junio 2026)</p>
+</header>
+<div class="wrap">
+
+  <div class="controls" id="controls">
+    <div class="ctrl"><label># Tanques: <span class="val" id="lblTanques"></span></label>
+      <input type="range" id="nTanques" min="1" max="6" step="1"></div>
+    <div class="ctrl"><label>Precio por sesión: <span class="val" id="lblPrecio"></span></label>
+      <input type="range" id="precio" min="100000" max="250000" step="5000"></div>
+    <div class="ctrl"><label>Ocupación: <span class="val" id="lblOcup"></span></label>
+      <input type="range" id="ocupacion" min="10" max="100" step="1"></div>
+    <div class="ctrl"><label>Arriendo mensual: <span class="val" id="lblArriendo"></span></label>
+      <input type="range" id="arriendo" min="5000000" max="30000000" step="500000"></div>
+    <div class="ctrl"><label>Pauta mensual: <span class="val" id="lblPauta"></span></label>
+      <input type="range" id="pauta" min="0" max="15000000" step="500000"></div>
+    <div class="ctrl"><label>Base de inversión (capex)</label>
+      <select id="capex"></select></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid2">
+    <div class="card"><h3>Punto de equilibrio</h3><div class="plot" id="plotBE"></div>
+      <div class="note" id="noteBE"></div></div>
+    <div class="card"><h3>P&amp;L mensual (ocupación actual)</h3><div class="plot" id="plotPL"></div>
+      <div class="note">Capex tratado como inversión one-time, fuera del opex.</div></div>
+  </div>
+
+  <div class="card"><h3>Flujo de caja acumulado — ramp de apertura</h3>
+    <div class="plot" id="plotCF" style="height:380px"></div>
+    <div class="note" id="noteCF"></div></div>
+
+  <div class="card"><h3>Sensibilidad — payback (meses) según precio × ocupación</h3>
+    <div class="plot" id="plotHeat" style="height:420px"></div>
+    <div class="note">Verde = recupera rápido · rojo = lento o no recupera. Calculado al # de tanques y costos actuales.</div></div>
+
+  <div class="card"><h3>Comparativo reportado (Sheet)</h3><div class="plot" id="plotCmp"></div>
+    <div class="note">Cifras tal cual el P&L del Sheet (incluye capex del mes 1 dentro del opex).</div></div>
+
+  <div class="card"><h3>Ideas de ingreso adicional (capital semilla / recurrente)</h3>
+    <div id="ideas"></div></div>
+
+  <div class="foot">Generado por build_html.py · fuente: Google Sheet 13v_c-IKpTtp25rWFLb47jb0oLEccQ7Fi ·
+    los supuestos viven en config.py</div>
+</div>
+
+<script>
+const CFG = {"sesionesDiaTanque": 9, "diasMes": 30, "varTotal100": 5081200, "capacidad100_4t": 1080, "depreciacion": 2907360, "fijos4t": {"arriendo": 19040000, "servicios_publicos": 2000000, "servicios_generales": 6317265, "administracion": 2334540, "recepcion": 6317265, "contabilidad": 875453, "software": 250000, "seguridad_camaras": 0, "seguro": 500000, "pagina_web_mant": 50000, "pauta_anuncios": 8000000, "mercadeo": 1500000, "mantenimiento": 300000}, "fijosEscalan": ["servicios_publicos", "servicios_generales", "administracion", "recepcion", "mantenimiento"], "fijosSliders": ["arriendo", "pauta_anuncios"], "precioBlended": 158600.0, "precioPlano": 155000, "ocupacionCurva": [0.3, 0.35, 0.4, 0.5, 0.6, 0.6, 0.4, 0.4, 0.4, 0.45, 0.45, 0.45], "capexAlternativas": {"Base (compra tanques)": 344441600, "Tanques en RENTING": 261662400, "Acumulado intermedio (Sheet)": 516102527, "Acumulado máximo (Sheet)": 777764927}, "capexItems": {"tanques_flotacion": 174441600, "adecuaciones_y_muebles": 100000000, "capital_trabajo_6m": 60000000, "camaras_seguridad": 5000000, "pagina_web": 5000000}, "capexTotal": 344441600, "ideas": [{"idea": "Membresía 'Fundadores' (100 cupos x $1.5M)", "potencial": 150000000}, {"idea": "Anualidad socios 'Fundadores' (30 cupos x $7M)", "potencial": 210000000}, {"idea": "Ceremonia de lanzamiento (30 cupos x $50K)", "potencial": 15000000}, {"idea": "Tienda (sales, aceites, velas, journal, libros, té)", "potencial": null}], "escenarios": {"Medellín (4 tanques)": {"meses": ["Jul", "Ago", "Sep", "Oct", "Nov", "Dic", "Ene", "Feb", "Mar"], "sesiones": [162, 189, 216, 540, 648, 648, 432, 432, 432], "precio": 155000, "ingresos_total": 573345000, "costos_total": 553307236, "utilidad_marginal": 20037764, "despues_depreciacion": -6128476}, "Barranquilla (2–3 tanques)": {"meses": ["Ago", "Sep", "Oct", "Nov", "Dic", "Ene", "Feb", "Mar", "Abr"], "sesiones": [162, 189, 324, 324, 324, 324, 324, 324, 324], "precio": 155000, "ingresos_total": 405945000, "costos_total": 537535746, "utilidad_marginal": -131590746, "despues_depreciacion": -157756986}}, "defaults": {"n_tanques": 4, "precio": 155000, "ocupacion": 0.4, "arriendo": 19040000, "pauta": 8000000, "capex": 344441600, "incluir_depreciacion_en_be": false}};
+const COP = x => '$' + Math.round(x).toLocaleString('es-CO');
+const COPm = x => '$' + (x/1e6).toLocaleString('es-CO',{maximumFractionDigits:1}) + 'M';
+const PLOT_LAYOUT = {
+  paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+  font:{color:'#cdd9e5', size:12}, margin:{t:10,r:14,b:42,l:64},
+  xaxis:{gridcolor:'#173049', zerolinecolor:'#234866'},
+  yaxis:{gridcolor:'#173049', zerolinecolor:'#234866'},
+  legend:{orientation:'h', y:-0.22}
+};
+const CFGOPT = {displayModeBar:false, responsive:true};
+
+// ---------- cálculo (espejo de model.py) ----------
+function capacidad(n){ return CFG.sesionesDiaTanque * CFG.diasMes * n; }
+function varPorSesion(){ return CFG.varTotal100 / CFG.capacidad100_4t; }
+
+function costosFijos(n, arriendo, pauta){
+  const factor = Math.max(0.40, n/4);
+  let t = 0;
+  for(const [k,v] of Object.entries(CFG.fijos4t)){
+    if(k==='arriendo') t += arriendo;
+    else if(k==='pauta_anuncios') t += pauta;
+    else if(CFG.fijosEscalan.includes(k)) t += v*factor;
+    else t += v;
+  }
+  return t;
+}
+function pyl(n, precio, occ, arriendo, pauta){
+  const cap = capacidad(n), ses = cap*occ;
+  const ing = ses*precio, vc = ses*varPorSesion(), fj = costosFijos(n,arriendo,pauta);
+  const uo = ing - vc - fj;          // EBITDA aprox
+  const un = uo - CFG.depreciacion;
+  return {ses, ing, vc, fj, uo, un, mo: ing?uo/ing:0, mn: ing?un/ing:0};
+}
+function breakeven(n, precio, arriendo, pauta){
+  const fj = costosFijos(n,arriendo,pauta), contrib = precio - varPorSesion();
+  const cap = capacidad(n), sbe = contrib>0 ? fj/contrib : Infinity;
+  return {sbe, obe: sbe/cap, ibe: sbe*precio, contrib, fj, cap};
+}
+function payback(n, precio, occ, arriendo, pauta, capex){
+  const p = pyl(n,precio,occ,arriendo,pauta);
+  return p.uo>0 ? capex/p.uo : Infinity;   // caja = EBITDA (deprec no es salida)
+}
+
+// ---------- estado / UI ----------
+const S = {};
+function readControls(){
+  S.n = +nTanques.value; S.precio = +precio.value; S.occ = +ocupacion.value/100;
+  S.arriendo = +arriendo.value; S.pauta = +pauta.value; S.capex = +capex.value;
+  lblTanques.textContent = S.n;
+  lblPrecio.textContent = COP(S.precio);
+  lblOcup.textContent = (S.occ*100).toFixed(0)+'%';
+  lblArriendo.textContent = COPm(S.arriendo);
+  lblPauta.textContent = COPm(S.pauta);
+}
+
+function renderKPIs(){
+  const be = breakeven(S.n,S.precio,S.arriendo,S.pauta);
+  const p  = pyl(S.n,S.precio,S.occ,S.arriendo,S.pauta);
+  const pb = payback(S.n,S.precio,S.occ,S.arriendo,S.pauta,S.capex);
+  const roi = p.un*12/S.capex;
+  const pbTxt = isFinite(pb) ? pb.toFixed(1)+' meses' : '—';
+  const cards = [
+    {k:'Ocupación equilibrio', v:(be.obe*100).toFixed(1)+'%', s:Math.round(be.sbe)+' sesiones/mes', cls:'gold'},
+    {k:'Utilidad neta / mes', v:COPm(p.un), s:'margen '+(p.mn*100).toFixed(0)+'%', cls:p.un>=0?'good':'bad'},
+    {k:'Payback', v:pbTxt, s:'caja op. '+COPm(p.uo)+'/mes', cls:p.uo>0?'good':'bad'},
+    {k:'ROI anual', v:(roi*100).toFixed(0)+'%', s:'sobre '+COPm(S.capex), cls:roi>=0?'good':'bad'},
+    {k:'Ingreso / mes', v:COPm(p.ing), s:Math.round(p.ses)+' sesiones', cls:'gold'},
+  ];
+  kpis.innerHTML = cards.map(c=>`<div class="kpi"><div class="k">${c.k}</div>
+    <div class="v ${c.cls}">${c.v}</div><div class="s">${c.s}</div></div>`).join('');
+}
+
+function plotBreakeven(){
+  const be = breakeven(S.n,S.precio,S.arriendo,S.pauta);
+  const cap = capacidad(S.n);
+  const xs=[], ing=[], cost=[];
+  for(let s=0;s<=cap;s+=Math.max(1,Math.round(cap/40))){
+    xs.push(s); ing.push(s*S.precio);
+    cost.push(be.fj + s*varPorSesion());
+  }
+  const data=[
+    {x:xs,y:ing,name:'Ingresos',mode:'lines',line:{color:'#4cc38a',width:3}},
+    {x:xs,y:cost,name:'Costos totales',mode:'lines',line:{color:'#e5736b',width:3}},
+    {x:[be.sbe],y:[be.ibe],name:'Equilibrio',mode:'markers',
+     marker:{color:'#c9a96a',size:12,symbol:'diamond'}}
+  ];
+  const occSes = cap*S.occ;
+  data.push({x:[occSes,occSes],y:[0,Math.max(...ing)],name:'Ocup. actual',mode:'lines',
+     line:{color:'#4aa3df',width:1,dash:'dot'}});
+  Plotly.react('plotBE',data,{...PLOT_LAYOUT,
+     xaxis:{...PLOT_LAYOUT.xaxis,title:'Sesiones / mes'},
+     yaxis:{...PLOT_LAYOUT.yaxis,title:'COP'}},CFGOPT);
+  noteBE.textContent = `Equilibrio en ${Math.round(be.sbe)} sesiones (${(be.obe*100).toFixed(1)}% ocupación) · contribución ${COP(be.contrib)}/sesión.`;
+}
+
+function plotPL(){
+  const p = pyl(S.n,S.precio,S.occ,S.arriendo,S.pauta);
+  const data=[{type:'bar',orientation:'h',
+    y:['Ingresos','Costos variables','Costos fijos','Depreciación','Utilidad neta'],
+    x:[p.ing,-p.vc,-p.fj,-CFG.depreciacion,p.un],
+    marker:{color:['#4cc38a','#e5736b','#e5916b','#9a7bd4', p.un>=0?'#c9a96a':'#e5736b']},
+    text:[COPm(p.ing),COPm(-p.vc),COPm(-p.fj),COPm(-CFG.depreciacion),COPm(p.un)],
+    textposition:'auto'}];
+  Plotly.react('plotPL',data,{...PLOT_LAYOUT,margin:{t:10,r:14,b:30,l:110},
+    xaxis:{...PLOT_LAYOUT.xaxis,title:'COP / mes'}},CFGOPT);
+}
+
+function plotCashflow(){
+  const curva = CFG.ocupacionCurva;
+  const xs=[0], acc=[-S.capex], bars=[-S.capex];
+  let saldo=-S.capex;
+  for(let i=0;i<curva.length;i++){
+    const p=pyl(S.n,S.precio,curva[i],S.arriendo,S.pauta);
+    saldo+=p.uo; xs.push(i+1); acc.push(saldo); bars.push(p.uo);
+  }
+  let pbMes=null;
+  for(let i=1;i<acc.length;i++){ if(acc[i]>=0){pbMes=xs[i];break;} }
+  const data=[
+    {x:xs,y:bars,type:'bar',name:'Flujo del mes',marker:{color:'#234f74'}},
+    {x:xs,y:acc,type:'scatter',mode:'lines+markers',name:'Acumulado',
+     line:{color:'#c9a96a',width:3}},
+    {x:[0,xs[xs.length-1]],y:[0,0],mode:'lines',name:'Punto de recuperación',
+     line:{color:'#8fa6bd',width:1,dash:'dash'}}
+  ];
+  Plotly.react('plotCF',data,{...PLOT_LAYOUT,
+    xaxis:{...PLOT_LAYOUT.xaxis,title:'Mes (0 = inversión)'},
+    yaxis:{...PLOT_LAYOUT.yaxis,title:'COP acumulado'}},CFGOPT);
+  noteCF.textContent = (pbMes? `Recupera la inversión en el mes ${pbMes}.`
+    : `No recupera la inversión en el horizonte (saldo final ${COPm(saldo)}). Subir ocupación o precio acelera el payback.`)
+    + ` Curva de ocupación: ${curva.map(o=>(o*100).toFixed(0)+'%').join(' · ')}`;
+}
+
+function plotHeatmap(){
+  const precios=[], occs=[], z=[];
+  for(let pr=120000; pr<=210000; pr+=15000) precios.push(pr);
+  for(let o=20; o<=90; o+=10) occs.push(o);
+  for(const o of occs){
+    const row=[];
+    for(const pr of precios){
+      const pb=payback(S.n,pr,o/100,S.arriendo,S.pauta,S.capex);
+      row.push(isFinite(pb)&&pb<=60 ? pb : null);
+    }
+    z.push(row);
+  }
+  const data=[{z:z, x:precios.map(COPm), y:occs.map(o=>o+'%'), type:'heatmap',
+    colorscale:[[0,'#2f9e6b'],[0.3,'#9bbf52'],[0.6,'#e3c98f'],[1,'#e5736b']],
+    reversescale:false, colorbar:{title:'meses'},
+    hovertemplate:'Precio %{x} · Ocup %{y}<br>Payback %{z:.1f} meses<extra></extra>'}];
+  Plotly.react('plotHeat',data,{...PLOT_LAYOUT,margin:{t:10,r:14,b:46,l:54},
+    xaxis:{...PLOT_LAYOUT.xaxis,title:'Precio por sesión'},
+    yaxis:{...PLOT_LAYOUT.yaxis,title:'Ocupación'}},CFGOPT);
+}
+
+function plotCompare(){
+  const names=Object.keys(CFG.escenarios);
+  const ing=names.map(n=>CFG.escenarios[n].ingresos_total);
+  const cost=names.map(n=>CFG.escenarios[n].costos_total);
+  const util=names.map(n=>CFG.escenarios[n].utilidad_marginal);
+  const data=[
+    {x:names,y:ing,name:'Ingresos año',type:'bar',marker:{color:'#4cc38a'}},
+    {x:names,y:cost,name:'Costos año',type:'bar',marker:{color:'#e5736b'}},
+    {x:names,y:util,name:'Utilidad marginal',type:'bar',marker:{color:'#c9a96a'}}
+  ];
+  Plotly.react('plotCmp',data,{...PLOT_LAYOUT,barmode:'group',
+    yaxis:{...PLOT_LAYOUT.yaxis,title:'COP / año'}},CFGOPT);
+}
+
+function renderIdeas(){
+  let rows = CFG.ideas.map(i=>`<tr><td>${i.idea}</td>
+     <td>${i.potencial!=null?COPm(i.potencial):'recurrente'}</td></tr>`).join('');
+  const tot = CFG.ideas.reduce((a,i)=>a+(i.potencial||0),0);
+  rows += `<tr><th>Potencial puntual total</th><th>${COPm(tot)}</th></tr>`;
+  ideas.innerHTML = `<table><tr><th>Idea</th><th>Potencial</th></tr>${rows}</table>`;
+}
+
+function refresh(){
+  readControls();
+  renderKPIs(); plotBreakeven(); plotPL(); plotCashflow(); plotHeatmap();
+}
+
+// ---------- init ----------
+function init(){
+  const d=CFG.defaults;
+  nTanques.value=d.n_tanques; precio.value=d.precio; ocupacion.value=Math.round(d.ocupacion*100);
+  arriendo.value=d.arriendo; pauta.value=d.pauta;
+  capex.innerHTML = Object.entries(CFG.capexAlternativas)
+    .map(([k,v])=>`<option value="${v}">${k} — ${COPm(v)}</option>`).join('');
+  capex.value=d.capex;
+  ['nTanques','precio','ocupacion','arriendo','pauta','capex'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',refresh);
+  });
+  // estáticos (no dependen de sliders)
+  plotCompare(); renderIdeas();
+  refresh();
+}
+init();
+</script>
+</body>
+</html>
